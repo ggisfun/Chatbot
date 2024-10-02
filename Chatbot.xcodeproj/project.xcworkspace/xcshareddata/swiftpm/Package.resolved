@@ -1,0 +1,24 @@
+{
+  "originHash" : "76b5ae58ff3307ac382fdc90d7926234bda00813d6fa403c56b4d4dd3210e260",
+  "pins" : [
+    {
+      "identity" : "kingfisher",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/onevcat/Kingfisher",
+      "state" : {
+        "revision" : "33696a71dd4d71f1b0f781ade11a48ba5549581a",
+        "version" : "8.0.3"
+      }
+    },
+    {
+      "identity" : "stipop-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/stipop-development/stipop-ios-sdk",
+      "state" : {
+        "revision" : "f6ac1f79ca175ef839629ea712df14f7d8bdf209",
+        "version" : "0.9.11"
+      }
+    }
+  ],
+  "version" : 3
+}
