@@ -69,7 +69,6 @@ class ChatbotViewController: UIViewController {
         
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(closeKeyboard))
         view.addGestureRecognizer(tapGestureRecognizer)
-        
     }
         
     @objc func closeKeyboard() {
