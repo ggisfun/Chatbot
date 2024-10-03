@@ -97,7 +97,7 @@ class ChatGPTController {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         
-        let prompt = chatHistory.last?.content!
+        let prompt = chatHistory.last?.content!.replacingOccurrences(of: "#", with: "")
         let requestBody = DalleImageRequest(prompt: prompt!, n: 1, size: "256x256")
         
         do {
