@@ -51,6 +51,7 @@ class ChatGPTController {
             temperature: 0.7
         )
         
+        
         do {
             let jsonData = try JSONEncoder().encode(requestBody)
             request.httpBody = jsonData
@@ -83,6 +84,55 @@ class ChatGPTController {
                 completion(.failure(.decodeDataError))
             }
         }.resume()
+    }
+    
+    func imageGenerationAPI(completion: @escaping (Result<String, APIError>) -> Void) {
+        guard let url = URL(string: "https://api.openai.com/v1/images/generations") else {
+            completion(.failure(.invalidURL))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        
+        let prompt = chatHistory.last?.content!
+        let requestBody = DalleImageRequest(prompt: prompt!, n: 1, size: "256x256")
+        
+        do {
+            let jsonData = try JSONEncoder().encode(requestBody)
+            request.httpBody = jsonData
+        } catch {
+            completion(.failure(.encodeDataError))
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error {
+                print(error)
+                completion(.failure(.requestFailed))
+                return
+            }
+            guard let responseCode = response as? HTTPURLResponse,
+                  responseCode.statusCode == 200 else {
+                completion(.failure(.statusCodeError))
+                return
+            }
+            guard let data else {
+                completion(.failure(.invalidResponse))
+                return
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let response = try decoder.decode(DalleImageResponse.self, from: data)
+                completion(.success(response.data.first!.url))
+            }catch {
+                completion(.failure(.decodeDataError))
+            }
+        }.resume()
+        
     }
     
     

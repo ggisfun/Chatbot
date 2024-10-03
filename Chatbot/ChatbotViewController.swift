@@ -45,6 +45,18 @@ class ChatbotViewController: UIViewController {
         return textView
     }()
     
+    let typingImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        
+        let data = NSDataAsset(name: "Animation_typing")!.data
+        let cfData = data as CFData
+        CGAnimateImageDataWithBlock(cfData, nil) { _, cgImage, _ in
+            imageView.image = UIImage(cgImage: cgImage)
+        }
+        return imageView
+    }()
+    
     var keyboardConstraint: NSLayoutConstraint?
     var inputConstraint: NSLayoutConstraint?
     
@@ -54,6 +66,7 @@ class ChatbotViewController: UIViewController {
         chatTableView.register(myTableViewCell.self, forCellReuseIdentifier: myTableViewCell.identifier)
         chatTableView.register(myImgTableViewCell.self, forCellReuseIdentifier: myImgTableViewCell.identifier)
         chatTableView.register(botTableViewCell.self, forCellReuseIdentifier: botTableViewCell.identifier)
+        chatTableView.register(botImgTableViewCell.self, forCellReuseIdentifier: botImgTableViewCell.identifier)
         chatTableView.delegate = self
         chatTableView.dataSource = self
         stipopButton.delegate = self
@@ -69,6 +82,7 @@ class ChatbotViewController: UIViewController {
         
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(closeKeyboard))
         view.addGestureRecognizer(tapGestureRecognizer)
+        
     }
         
     @objc func closeKeyboard() {
@@ -102,6 +116,14 @@ class ChatbotViewController: UIViewController {
         view.addSubview(bottomSFView)
         view.addSubview(titleView)
         view.addSubview(messageInputView)
+        view.addSubview(typingImageView)
+        
+        typingImageView.translatesAutoresizingMaskIntoConstraints = false
+        typingImageView.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        typingImageView.widthAnchor.constraint(equalToConstant: 68).isActive = true
+        typingImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12).isActive = true
+        typingImageView.bottomAnchor.constraint(equalTo: messageInputView.topAnchor, constant: -2).isActive = true
+        typingImageView.isHidden = true
         
         topSFView.translatesAutoresizingMaskIntoConstraints = false
         topSFView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
@@ -206,33 +228,65 @@ class ChatbotViewController: UIViewController {
     @objc func sendMessage() {
         guard messageTextView.text?.isEmpty == false else { return }
         
+        let prompt = messageTextView.text!
         addMessage(role: "user", content: messageTextView.text!, imgUrl: nil)
         messageTextView.text = ""
         chatTableView.reloadData()
         chatTableView.scrollToRow(at: IndexPath(row: chatHistory.count - 1, section: 0), at: .bottom, animated: true)
         
-        ChatGPTController.shared.callChatGPTAPI() { result in
-            switch result {
-            case .success(let content):
-                addMessage(role: "assistant", content: content, imgUrl: nil)
-                DispatchQueue.main.async {
-                    self.chatTableView.reloadData()
-                    self.chatTableView.scrollToRow(at: IndexPath(row: chatHistory.count - 1, section: 0), at: .bottom, animated: true)
+        typingImageView.isHidden = false
+        if prompt.hasPrefix("#") {
+            ChatGPTController.shared.imageGenerationAPI() { result in
+                switch result {
+                case .success(let imgUrl):
+                    addMessage(role: "assistant", content: nil, imgUrl: imgUrl)
+                    DispatchQueue.main.async {
+                        self.chatTableView.reloadData()
+                        self.chatTableView.scrollToRow(at: IndexPath(row: chatHistory.count - 1, section: 0), at: .bottom, animated: true)
+                        self.typingImageView.isHidden = true
+                    }
+                case .failure(let error):
+                    switch error {
+                    case .invalidURL:
+                        print("無效的URL")
+                    case .invalidResponse:
+                        print("無效的響應")
+                    case .statusCodeError:
+                        print("狀態碼錯誤")
+                    case .requestFailed:
+                        print("請求失敗")
+                    case .decodeDataError:
+                        print("解碼失敗")
+                    case .encodeDataError:
+                        print("編碼失敗")
+                    }
                 }
-            case .failure(let error):
-                switch error {
-                case .invalidURL:
-                    print("無效的URL")
-                case .invalidResponse:
-                    print("無效的響應")
-                case .statusCodeError:
-                    print("狀態碼錯誤")
-                case .requestFailed:
-                    print("請求失敗")
-                case .decodeDataError:
-                    print("解碼失敗")
-                case .encodeDataError:
-                    print("編碼失敗")
+            }
+        }else {
+            ChatGPTController.shared.callChatGPTAPI() { result in
+                switch result {
+                case .success(let content):
+                    addMessage(role: "assistant", content: content, imgUrl: nil)
+                    DispatchQueue.main.async {
+                        self.chatTableView.reloadData()
+                        self.chatTableView.scrollToRow(at: IndexPath(row: chatHistory.count - 1, section: 0), at: .bottom, animated: true)
+                        self.typingImageView.isHidden = true
+                    }
+                case .failure(let error):
+                    switch error {
+                    case .invalidURL:
+                        print("無效的URL")
+                    case .invalidResponse:
+                        print("無效的響應")
+                    case .statusCodeError:
+                        print("狀態碼錯誤")
+                    case .requestFailed:
+                        print("請求失敗")
+                    case .decodeDataError:
+                        print("解碼失敗")
+                    case .encodeDataError:
+                        print("編碼失敗")
+                    }
                 }
             }
         }
@@ -276,12 +330,21 @@ extension ChatbotViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let message = chatHistory[indexPath.row]
         if message.role == "assistant" {
-            let cell = tableView.dequeueReusableCell(withIdentifier: botTableViewCell.identifier, for: indexPath) as! botTableViewCell
-            cell.backgroundColor = .clear
-            cell.selectionStyle = .none
-            cell.messageTextView.text = message.content
-            cell.dateTimeLabel.text = message.dateTime
-            return cell
+            if message.content != nil {
+                let cell = tableView.dequeueReusableCell(withIdentifier: botTableViewCell.identifier, for: indexPath) as! botTableViewCell
+                cell.backgroundColor = .clear
+                cell.selectionStyle = .none
+                cell.messageTextView.text = message.content
+                cell.dateTimeLabel.text = message.dateTime
+                return cell
+            }else {
+                let cell = tableView.dequeueReusableCell(withIdentifier: botImgTableViewCell.identifier, for: indexPath) as! botImgTableViewCell
+                cell.backgroundColor = .clear
+                cell.selectionStyle = .none
+                cell.stickerImageView.kf.setImage(with: URL(string:message.imgUrl!))
+                cell.dateTimeLabel.text = message.dateTime
+                return cell
+            }
         }else {
             if message.content != nil {
                 let cell = tableView.dequeueReusableCell(withIdentifier: myTableViewCell.identifier, for: indexPath) as! myTableViewCell
@@ -289,6 +352,14 @@ extension ChatbotViewController: UITableViewDataSource, UITableViewDelegate {
                 cell.selectionStyle = .none
                 cell.messageTextView.text = message.content
                 cell.dateTimeLabel.text = message.dateTime
+                
+                if message.content!.hasPrefix("#") {
+                    let attributedString = NSMutableAttributedString(string: message.content!)
+                    attributedString.addAttribute(.foregroundColor, value: UIColor.blue, range: NSMakeRange(0, 1))
+                    attributedString.addAttribute(.font, value: UIFont.systemFont(ofSize: 17), range: NSMakeRange(0, message.content!.count))
+                    cell.messageTextView.attributedText = attributedString
+                }
+                
                 return cell
             }else {
                 let cell = tableView.dequeueReusableCell(withIdentifier: myImgTableViewCell.identifier, for: indexPath) as! myImgTableViewCell

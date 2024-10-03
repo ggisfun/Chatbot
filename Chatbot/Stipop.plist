@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>api_key</key>
-	<string>api_key</string>
+	<string>API_KEY</string>
 	<key>Color</key>
 	<dict>
 		<key>IdentityColor</key>
